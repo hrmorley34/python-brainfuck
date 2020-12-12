@@ -3,7 +3,7 @@ from io import BytesIO
 from .memory import Memory, DefaultMemory
 
 
-class BrainFuck:
+class Brainfuck:
     script: str
 
     memory: Memory
