@@ -1,8 +1,12 @@
-from .brainfuck import Brainfuck
-from .memory import Memory, DictMemory, BytesMemory
+from .brainfuck import BaseBrainfuck, BytesBrainfuck, UnicodeBrainfuck
+from .memory import BaseMemory, DictMemory, BytesMemory
 
 
-def debug_info(bf: Brainfuck):
+Brainfuck = BytesBrainfuck
+Memory = BytesMemory
+
+
+def debug_info(bf: BaseBrainfuck):
     return (
         f"s*: {bf.spointer}; d*: {bf.dpointer}; mem: {bf.memory}; sloops: {bf.sloops}"
     )

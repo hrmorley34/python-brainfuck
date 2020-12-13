@@ -1,6 +1,6 @@
 import argparse
 import sys
-from .brainfuck import Brainfuck
+from .brainfuck import BytesBrainfuck
 
 
 parser = argparse.ArgumentParser()
@@ -53,7 +53,7 @@ def main(args: argparse.Namespace):
     else:
         raise Exception
 
-    b = Brainfuck(script, args.infile, args.outfile)
+    b = BytesBrainfuck(script, args.infile, args.outfile)
     b.run()
 
 

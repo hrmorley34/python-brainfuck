@@ -1,8 +1,8 @@
-from typing import Any, BinaryIO, Sequence, Union
+from typing import Any, BinaryIO, Optional, Sequence, Union
 from io import BytesIO
 
 
-class Memory:
+class BaseMemory:
     _default: int = 0
     _memsize: int
     _cellsize: int
@@ -25,26 +25,31 @@ class Memory:
         return f"Memory[{self._memsize}]"
 
 
-class DictMemory(Memory):
+class DictMemory(BaseMemory):
+    _memsize: Optional[int]
+    _cellsize: Optional[int]
     data: dict
 
-    def __init__(self, memsize: int = 30000, cellsize: int = 256):
+    def __init__(self, memsize: Optional[int] = 30000, cellsize: Optional[int] = 256):
         self._memsize = memsize
         self._cellsize = cellsize
         self.data = dict()
 
     def __setitem__(self, key: int, value: int):
         key = int(key)
-        assert 0 <= key < self._memsize
+        assert 0 <= key
+        assert self._memsize is None or key < self._memsize
 
         value = int(value)
-        value %= self._cellsize
+        if self._cellsize:
+            value %= self._cellsize
 
         self.data[key] = value
 
     def __getitem__(self, key: int) -> int:
         key = int(key)
-        assert 0 <= key < self._memsize
+        assert 0 <= key
+        assert self._memsize is None or key < self._memsize
 
         return self.data.get(key, self._default)
 
@@ -55,7 +60,10 @@ class DictMemory(Memory):
     def __repr__(self) -> str:
         if not len(self.data):
             return f"Memory[{self._memsize}]"
-        cs = len(hex(self._cellsize - 1)[2:])
+        if self._cellsize is None:
+            cs = min(max(len(hex(max(self.data.value()))) - 2, 2), 8)
+        else:
+            cs = len(hex(self._cellsize - 1)) - 2
         text = f"Memory[{self._memsize}]" + "{"
         for x in range(0, max(self.data.keys()) + 1, 16):
             text += "\n "
@@ -65,11 +73,15 @@ class DictMemory(Memory):
         return text
 
 
-class BytesMemory(Memory):
-    _cellsize: int = 256
+class BytesMemory(BaseMemory):
+    @property
+    def _cellsize(self) -> int:
+        return 256
+
+    _memsize: Optional[int]
     data: BinaryIO
 
-    def __init__(self, memsize: int = 30000, dataobj: BinaryIO = None):
+    def __init__(self, memsize: Optional[int] = 30000, dataobj: BinaryIO = None):
         self._memsize = memsize
         self.data = dataobj or BytesIO()
 
@@ -89,7 +101,8 @@ class BytesMemory(Memory):
                 self.data.getbuffer()[key] = bytes(value)
 
         key = int(key)
-        assert 0 <= key < self._memsize
+        assert 0 <= key
+        assert self._memsize is None or key < self._memsize
 
         self.data.seek(key)
         self.data.write(bytes([int(value) % self._cellsize]))
@@ -107,7 +120,8 @@ class BytesMemory(Memory):
                 return bytes(self.data.getbuffer()[key])
 
         key = int(key)
-        assert 0 <= key < self._memsize
+        assert 0 <= key
+        assert self._memsize is None or key < self._memsize
 
         self.data.seek(key)
         return (self.data.read(1) or b"\x00")[0]
@@ -139,6 +153,3 @@ class BytesMemory(Memory):
                 text += row + "\n"
         text += "}"
         return text
-
-
-DefaultMemory = BytesMemory
