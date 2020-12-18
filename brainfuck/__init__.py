@@ -1,5 +1,6 @@
 from .brainfuck import BaseBrainfuck, BytesBrainfuck, UnicodeBrainfuck
 from .memory import BaseMemory, DictMemory, BytesMemory
+from .errors import ParsingError
 
 
 Brainfuck = BytesBrainfuck

@@ -2,6 +2,7 @@ from typing import Callable, IO, BinaryIO, TextIO, Literal, Optional, Union
 from io import BytesIO, StringIO
 from abc import ABC, abstractmethod
 from .memory import BaseMemory, BytesMemory, DictMemory
+from .errors import ParsingError
 
 
 class BaseBrainfuck(ABC):
@@ -105,6 +106,10 @@ class BaseBrainfuck(ABC):
                 self.sloops.append(self.spointer)
         elif c == "]":
             # Return to start of loop unless 0 at pointer
+            if not len(self.sloops):
+                raise ParsingError(
+                    "No opening bracket matching close at {}".format(self.spointer)
+                )
             p = self.sloops.pop(-1)
             if self.memory[self.dpointer] == 0:
                 self.spointer += 1  # Continue on
@@ -126,6 +131,14 @@ class BaseBrainfuck(ABC):
     def run(self):
         while self.spointer < len(self.script):
             self.next()
+        if len(self.sloops) == 1:
+            raise ParsingError("Unclosed loop at {}".format(self.sloops[0]))
+        elif len(self.sloops) > 1:
+            raise ParsingError(
+                "Unclosed loops at {}, and {}".format(
+                    ", ".join(map(str, self.sloops[:-1])), self.sloops[-1]
+                )
+            )
 
 
 class BytesBrainfuck(BaseBrainfuck):
