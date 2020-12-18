@@ -1,9 +1,10 @@
-from typing import IO, BinaryIO, TextIO, Optional, Union
-from io import BytesIO, StringIO, SEEK_CUR, SEEK_END
+from typing import IO, BinaryIO, TextIO, Literal, Optional, Union
+from io import BytesIO, StringIO
+from abc import ABC, abstractmethod
 from .memory import BaseMemory, BytesMemory, DictMemory
 
 
-class BaseBrainfuck:
+class BaseBrainfuck(ABC):
     script: str
     eof: Optional[int]
 
@@ -15,13 +16,14 @@ class BaseBrainfuck:
     dpointer: int
     sloops: list[int]
 
+    @abstractmethod
     def __init__(
         self,
         script: str,
         input: Optional[IO] = None,
         output: Optional[IO] = None,
         memory: Optional[BaseMemory] = None,
-        eof: Optional[int] = 0,
+        eof: Union[int, Literal[False], None] = 0,
     ):
         raise NotImplementedError
 
@@ -30,11 +32,22 @@ class BaseBrainfuck:
             self.next()
             yield
 
-    def _input(self) -> int:
+    @abstractmethod
+    def _c_input(self) -> int:
         " Input a character/byte "
         raise NotImplementedError
 
-    def _output(self, data: int):
+    def _c_input_eof(self) -> int:
+        " Value for input of an EOF "
+        if self.eof is None:
+            return None  # No change
+        elif self.eof is False:
+            raise EOFError
+        else:
+            return self.eof
+
+    @abstractmethod
+    def _c_output(self, data: int):
         " Output a character/byte "
         raise NotImplementedError
 
@@ -61,10 +74,12 @@ class BaseBrainfuck:
 
         elif c == ",":
             # Input the next byte at pointer
-            self.memory[self.dpointer] = self._input()
+            d = self._c_input()
+            if d is not None:
+                self.memory[self.dpointer] = d
         elif c == ".":
             # Output the byte at the pointer
-            self._output(self.memory[self.dpointer])
+            self._c_output(self.memory[self.dpointer])
 
         elif c == "[":
             # Loop unless 0 at pointer
@@ -113,10 +128,10 @@ class BytesBrainfuck(BaseBrainfuck):
         input: Optional[BinaryIO] = None,
         output: Optional[BinaryIO] = None,
         memory: Optional[BaseMemory] = None,
-        eof: Optional[int] = 0,
+        eof: Union[int, Literal[False], None] = 0,
     ):
         self.script = script
-        self.eof = None if eof is None else int(eof)
+        self.eof = eof if eof in (None, False) else int(eof)
 
         self.memory = memory or BytesMemory()
         self.input = input or BytesIO()
@@ -126,17 +141,15 @@ class BytesBrainfuck(BaseBrainfuck):
         self.dpointer = 0
         self.sloops = []
 
-    def _input(self) -> int:
+    def _c_input(self) -> int:
         " Get the next input byte "
         inchar = self.input.read(1)
         if len(inchar):
             return inchar[0]
-        elif self.eof is None:
-            raise EOFError
         else:
-            return self.eof
+            return self._c_input_eof()
 
-    def _output(self, data: int):
+    def _c_output(self, data: int):
         " Output a byte "
         self.output.write(bytes([int(data) % 256]))
 
@@ -152,10 +165,10 @@ class UnicodeBrainfuck(BaseBrainfuck):
         input: Optional[TextIO] = None,
         output: Optional[TextIO] = None,
         memory: Optional[BaseMemory] = None,
-        eof: Optional[int] = 0,
+        eof: Union[int, Literal[False], None] = 0,
     ):
         self.script = script
-        self.eof = None if eof is None else int(eof)
+        self.eof = eof if eof in (None, False) else int(eof)
 
         self.memory = memory or DictMemory(cellsize=None)
         self.input = input or StringIO()
@@ -165,16 +178,14 @@ class UnicodeBrainfuck(BaseBrainfuck):
         self.dpointer = 0
         self.sloops = []
 
-    def _input(self) -> int:
+    def _c_input(self) -> int:
         " Get the next input char "
         inchar = self.input.read(1)
         if len(inchar):
             return ord(inchar)
-        elif self.eof is None:
-            raise EOFError
         else:
-            return self.eof
+            return self._c_input_eof()
 
-    def _output(self, data: int):
+    def _c_output(self, data: int):
         " Output a char "
         self.output.write(chr(data))

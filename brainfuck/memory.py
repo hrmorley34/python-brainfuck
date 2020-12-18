@@ -1,20 +1,30 @@
-from typing import Any, BinaryIO, Optional, Sequence, Union
+from typing import Any, BinaryIO, IO, Optional, Sequence, Union
 from io import BytesIO
+from abc import ABC, abstractmethod
 
 
-class BaseMemory:
+class BaseMemory(ABC):
     _default: int = 0
-    _memsize: int
-    _cellsize: int
+    _memsize: Optional[int]
+    _cellsize: Optional[int]
+    _cellwrap: bool
     data: Any
 
-    def __init__(self, memsize: int = 30000, cellsize: int = 256):
+    def __init__(
+        self,
+        memsize: Optional[int] = 30000,
+        cellsize: Optional[int] = 256,
+        cellwrap: bool = False,
+    ):
         self._memsize = memsize
         self._cellsize = cellsize
+        self._cellwrap = cellwrap
 
+    @abstractmethod
     def __setitem__(self, key: int, value: int):
         raise NotImplementedError
 
+    @abstractmethod
     def __getitem__(self, key: int) -> int:
         raise NotImplementedError
 
@@ -26,13 +36,17 @@ class BaseMemory:
 
 
 class DictMemory(BaseMemory):
-    _memsize: Optional[int]
-    _cellsize: Optional[int]
     data: dict
 
-    def __init__(self, memsize: Optional[int] = 30000, cellsize: Optional[int] = 256):
+    def __init__(
+        self,
+        memsize: Optional[int] = 30000,
+        cellsize: Optional[int] = 256,
+        cellwrap: bool = False,
+    ):
         self._memsize = memsize
         self._cellsize = cellsize
+        self._cellwrap = cellwrap
         self.data = dict()
 
     def __setitem__(self, key: int, value: int):
@@ -42,7 +56,10 @@ class DictMemory(BaseMemory):
 
         value = int(value)
         if self._cellsize:
-            value %= self._cellsize
+            if self._cellwrap:
+                value %= self._cellsize
+            else:
+                value = max(min(value, self._cellsize), 0)
 
         self.data[key] = value
 
@@ -73,12 +90,15 @@ class DictMemory(BaseMemory):
         return text
 
 
-class BytesMemory(BaseMemory):
+class IOMemory(BaseMemory):
+    data: IO
+
+
+class BytesMemory(IOMemory):
     @property
     def _cellsize(self) -> int:
         return 256
 
-    _memsize: Optional[int]
     data: BinaryIO
 
     def __init__(self, memsize: Optional[int] = 30000, dataobj: BinaryIO = None):
