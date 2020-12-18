@@ -1,4 +1,4 @@
-from typing import IO, BinaryIO, TextIO, Literal, Optional, Union
+from typing import Callable, IO, BinaryIO, TextIO, Literal, Optional, Union
 from io import BytesIO, StringIO
 from abc import ABC, abstractmethod
 from .memory import BaseMemory, BytesMemory, DictMemory
@@ -7,6 +7,7 @@ from .memory import BaseMemory, BytesMemory, DictMemory
 class BaseBrainfuck(ABC):
     script: str
     eof: Optional[int]
+    debugfunc: Optional[Callable[["BaseBrainfuck"], None]]
 
     memory: BaseMemory
     input: IO
@@ -24,13 +25,16 @@ class BaseBrainfuck(ABC):
         output: Optional[IO] = None,
         memory: Optional[BaseMemory] = None,
         eof: Union[int, Literal[False], None] = 0,
+        debugfunc: Optional[Callable[["BaseBrainfuck"], None]] = None,
     ):
         raise NotImplementedError
 
     def __iter__(self):
         while True:
-            self.next()
-            yield
+            yield self.next()
+
+    def __next__(self):
+        return self.next()
 
     @abstractmethod
     def _c_input(self) -> int:
@@ -52,6 +56,7 @@ class BaseBrainfuck(ABC):
         raise NotImplementedError
 
     def next(self):
+        " Run the next command in the script "
         c = self.script[self.spointer]
 
         if c == ">":
@@ -106,6 +111,12 @@ class BaseBrainfuck(ABC):
             else:
                 self.spointer = p  # Return to the start of the loop
             return
+
+        elif c == "#":
+            # Debug point: runs debugfunc
+            if self.debugfunc is not None:
+                self.debugfunc(self)
+
         else:
             # All other characters represent comments
             pass
@@ -129,9 +140,11 @@ class BytesBrainfuck(BaseBrainfuck):
         output: Optional[BinaryIO] = None,
         memory: Optional[BaseMemory] = None,
         eof: Union[int, Literal[False], None] = 0,
+        debugfunc: Optional[Callable[[BaseBrainfuck], None]] = None,
     ):
         self.script = script
         self.eof = eof if eof in (None, False) else int(eof)
+        self.debugfunc = debugfunc
 
         self.memory = memory or BytesMemory()
         self.input = input or BytesIO()
@@ -166,9 +179,11 @@ class UnicodeBrainfuck(BaseBrainfuck):
         output: Optional[TextIO] = None,
         memory: Optional[BaseMemory] = None,
         eof: Union[int, Literal[False], None] = 0,
+        debugfunc: Optional[Callable[[BaseBrainfuck], None]] = None,
     ):
         self.script = script
         self.eof = eof if eof in (None, False) else int(eof)
+        self.debugfunc = debugfunc
 
         self.memory = memory or DictMemory(cellsize=None)
         self.input = input or StringIO()
